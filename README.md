@@ -1,5 +1,5 @@
 ## Welcome to GitHub Pages
-* [Crane](scene2.html)
+* [Crane](scene.html)
 * [Images](scene2.html)
 * [Displacement (WIP)](scene3.html)
 * [Flow Map](scene4.html)
