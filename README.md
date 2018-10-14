@@ -1,4 +1,3 @@
-## Welcome to GitHub Pages
 * [Crane](scene.html)
 * [Images](scene2.html)
 * [Displacement (WIP)](scene3.html)
