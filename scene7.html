@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<meta charset=utf-8>
+		<title>Jacques</title>
+		<style>
+			body { margin: 0; }
+			canvas { width: 100%; height: 100% }
+		</style>
+    </head>
+	<body>
+		<script src="js/three.js"></script>
+        <script src="js/OBJLoader.js"></script>
+        <script src="js/RectAreaLightUniformsLib.js"></script>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/2.0.2/TweenMax.min.js"></script>
+        <script>
+                function animate() {
+                    for(var i=0; i<wheels.length; i++) {
+                        if(i%2 === 0) {
+                            wheels[i].rotation.z += 0.01;
+                        } else {
+                            wheels[i].rotation.z -= 0.01;
+                        }
+                        camera.rotation.z += 0.0005;
+                    }
+
+                    animateCamera();
+                    requestAnimationFrame(animate);
+                    renderer.render(scene, camera);
+                }
+
+                function animateCamera() {
+                    
+                }
+
+                var clock = new THREE.Clock;
+                var loader = new THREE.OBJLoader();
+
+                var scene = new THREE.Scene();
+                scene.background = new THREE.Color(0x000000);
+                var camera = new THREE.PerspectiveCamera(75, (window.innerWidth) / window.innerHeight, 0.1, 1000);
+                
+
+                var renderer = new THREE.WebGLRenderer( { antialias: true});
+                renderer.setClearColor( 0xffffff, 0);
+                renderer.setSize( (window.innerWidth), window.innerHeight);
+                document.body.appendChild(renderer.domElement);
+
+                var camDistance = 8;
+                camera.position.z = camDistance;
+                camera.position.y = 0;
+                camera.position.x = 0;
+                camera.lookAt(0, 0, 0);
+
+
+                var pointLight = new THREE.PointLight( 0x000fff, 1, 50 );
+                pointLight.decay = 1;
+                pointLight.position.set( 0, 0, 3 );
+                scene.add( pointLight );
+               
+                var pointLight2 = new THREE.PointLight( 0xff0000, 1, 50 );
+                pointLight2.decay = 1;
+                pointLight2.position.set( 0, 0, -3 );
+                scene.add( pointLight2 );
+               
+                var pointLight3 = new THREE.PointLight( 0xffffff, 3, 50 );
+                pointLight3.decay = 2;
+                pointLight3.position.set( 0, 0, 0 );
+                scene.add( pointLight3 );
+
+                var wheelModel;
+                var numWheels = 8;
+                var wheels = [];
+                var offset = 2 * Math.PI / numWheels;
+
+                loader.load(
+                    'Models/Roue/Roue.obj',
+                    function ( object ) {
+                        object.traverse(function(child) {
+                            child.material = new THREE.MeshStandardMaterial({
+                                color: 0xffffff,
+                                roughness: 0.1,
+                                metalness: 0.8
+                            })
+                        });
+                        wheelModel = object;
+                        for(var i=0; i<numWheels; i++) {
+                            var wheel = wheelModel.clone();
+                            wheel.position.x = Math.cos(i * offset) * 2.5;
+                            wheel.position.y = Math.sin(i * offset) * 2.5;
+                            scene.add(wheel);
+                            wheels[i] = wheel;
+                        }                    
+                    },
+                    function ( xhr ) {
+                        console.log( ( xhr.loaded / xhr.total * 100 ) + '% loaded' );
+                    },
+                    function ( error ) {
+                        console.log( 'An error happened' );
+                    }
+                );
+            
+            document.onmousedown = handleClick;
+            var hasClicked = false;
+            function handleClick() {
+                hasClicked = true;
+            }
+
+            
+            document.onmouseup= handleMouseup;
+            function handleMouseup() {
+                hasClicked = false;
+            }
+
+            document.onmousemove = handleMouseMove;
+            var oldX=0; oldY=0;
+            var camRotationX = (2 * Math.PI) / 3;
+            function handleMouseMove(event) {
+                if(hasClicked) {
+                    if(event.screenX < oldX) {
+                        camRotationX -= 0.1
+                        camera.position.x = Math.cos(camRotationX) * camDistance;
+                        camera.position.z = Math.sin(camRotationX) * camDistance;
+                        camera.lookAt(0, 0, 0);
+                    }    
+                    if(event.screenX > oldX) {
+                        camRotationX += 0.1
+                        camera.position.x = Math.cos(camRotationX) * camDistance;
+                        camera.position.z = Math.sin(camRotationX) * camDistance;
+                        camera.lookAt(0, 0, 0);
+                    }
+
+                    oldX = event.screenX;
+                    oldY = event.screenY;
+                }
+            }
+            
+                
+
+                
+                animate();
+        </script>
+    </body>
+</html>

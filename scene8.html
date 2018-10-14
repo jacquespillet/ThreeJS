@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<meta charset=utf-8>
+		<title>Jacques</title>
+		<style>
+			body { margin: 0; }
+			canvas { width: 100%; height: 100% }
+		</style>
+	</head>
+	<body>
+		<script src="js/three.js"></script>
+        <script src="js/OBJLoader.js"></script>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/2.0.2/TweenMax.min.js"></script>
+
+        <script id="vertexShader" type="x-shader/x-vertex">
+            precision mediump float;
+			precision mediump int;
+            
+            uniform mat4 modelViewMatrix;
+            uniform mat4 projectionMatrix;
+            uniform mat4 modelMatrix;
+            uniform float time;
+            uniform float waving;
+            uniform vec3 cameraPos;
+            uniform vec3 lightPos;
+
+            attribute vec3 position;
+            attribute vec2 uv;
+            attribute vec3 normal;
+
+            varying vec3 vPosition;
+            varying vec2 vUv;
+            varying vec3 toCameraVector;
+            varying vec3 fromLightVector;
+            varying vec3 vNormal;
+
+            
+			void main()	{
+                vUv = uv;
+                
+                vPosition = position;
+                vPosition.y +=  ((sin((vPosition.x + time * 2.0))) / 5.0);
+                if(position.x < 0.0) {
+                    vPosition.y *= (1.0 - vPosition.x);
+                }
+                vUv.x += time * 0.3;
+                
+                vNormal = normal;
+                
+                
+                vec4 tmp_position = projectionMatrix * modelViewMatrix * vec4( vPosition, 1.0 );    
+                
+                fromLightVector = tmp_position.xyz - lightPos;
+                toCameraVector = cameraPos - tmp_position.xyz;
+
+                gl_Position = tmp_position;
+			}
+		</script>
+
+		<script id="fragmentShader" type="x-shader/x-fragment">
+			precision mediump float;
+            precision mediump int;
+            
+            uniform sampler2D image;
+            uniform sampler2D image2;
+
+            varying vec3 toCameraVector;
+            varying vec3 fromLightVector;
+
+            varying vec3 vPosition;
+            varying vec2 vUv;
+            varying vec3 vNormal;
+
+			void main()	{
+            
+                float ambientFact = 0.7;
+                vec4 ambient = texture2D(image, vUv) * 0.5;
+                ambient = vec4(ambientFact, 0.0, 0.0, 1.0);
+                ambient = texture2D(image, vUv) * ambientFact;
+
+                float diffuseFact = max(dot(vNormal, -fromLightVector), 0.0);
+                vec4 diffuse = diffuseFact * texture2D(image, vUv);
+
+                vec3 viewVector = normalize(toCameraVector);
+                vec3 reflectedLight = reflect(normalize(-fromLightVector), vNormal);
+                float specular = max(dot(reflectedLight, viewVector), 0.0);
+                specular = pow(specular, 20.0);
+                vec3 specularHighlights = vec3(1.0, 1.0, 1.0) * specular * 2.0;
+
+                gl_FragColor = ambient + diffuse + vec4(specularHighlights, 1.0);
+            }
+		</script>
+		<script>
+            
+            function animate() {
+                if(torus !=null) {
+                    elapsed+= clock.getDelta();
+                    torus.children[0].material.uniforms.time.value = elapsed;
+                    torus.children[0].material.uniforms.time.needsUpdate = true;
+
+                    torus2.children[0].material.uniforms.time.value = elapsed;
+                    torus2.children[0].material.uniforms.time.needsUpdate = true;
+                    
+                    torus2.rotation.z += 0.01;
+                    torus.rotation.z += 0.01;
+                    torus2.rotation.x += 0.01;
+                    torus.rotation.x += 0.01;
+                }
+                requestAnimationFrame(animate);
+                renderer.render(scene, camera);
+            }
+
+            var clock = new THREE.Clock;
+            var light = new THREE.DirectionalLight();
+            var loader = new THREE.OBJLoader();
+            var elapsed = 0.0;
+            var isWaving = false;
+
+            var scene = new THREE.Scene();
+            scene.background = new THREE.Color(0xd3d3d3);
+            var camera = new THREE.PerspectiveCamera(75, (window.innerWidth) / window.innerHeight, 0.1, 1000);
+            
+
+            var renderer = new THREE.WebGLRenderer();
+            renderer.setSize( (window.innerWidth), window.innerHeight);
+            document.body.appendChild(renderer.domElement);
+
+            var torus, torus2;
+
+            camera.position.z = 10;
+            camera.position.y = 5;
+            camera.position.x = 5;
+            camera.lookAt(0, 0, 0);
+           
+            var light = new THREE.AmbientLight( 0xffffff ); 
+            scene.add(light);
+
+            var texture = new THREE.TextureLoader().load( "Models/Torus/texture1.jpg", function(texture) {
+                texture.wrapS = texture.wrapT = THREE.RepeatWrapping;
+            });
+            var texture2 = new THREE.TextureLoader().load( "Models/Torus/texture2.jpg", function(texture) {
+                texture.wrapS = texture.wrapT = THREE.RepeatWrapping;
+            });
+
+
+            loader.load(
+                'Models/Torus/Torus.obj',
+                function ( object ) {
+                    torus = object;
+                    torus.traverse(function(child) {
+                        child.material = new THREE.RawShaderMaterial( {
+                            uniforms: {
+                                waving: { value: 0.0},
+                                time: { value: 1.0 },
+                                image: { type: "t", value: texture},
+                                image2: { type: "t", value: texture2},
+                                imageId: { value: 0 },
+                                blendFactor: { value: 0.0 },
+                                cameraPos: { type: "v3", value: camera.position},
+                                lightPos: { type: "v3", value: new THREE.Vector3( 0, 2, -10)}        
+                            },
+                            vertexShader: document.getElementById( 'vertexShader' ).textContent,
+                            fragmentShader: document.getElementById( 'fragmentShader' ).textContent,
+                            side: THREE.DoubleSide,
+                            transparent: true
+                        });
+                        child.rotation.x = THREE.Math.degToRad(180.0);
+                    });
+                    torus.scale.x = 3;
+                    torus.scale.y = 3;
+                    scene.add(torus);
+                    
+                    torus2 = torus.clone();
+                    torus2.children[0].material = torus.children[0].material.clone();
+                    torus2.children[0].material.uniforms.image.value = texture2;
+                    torus.scale.x = 3;
+                    torus.scale.y = 3;
+                    torus.rotation.z = Math.PI /2;
+                    torus.position.z = 1;
+                    scene.add(torus2);
+                },
+                function ( xhr ) {
+                    console.log( ( xhr.loaded / xhr.total * 100 ) + '% loaded' );
+                },
+                function ( error ) {
+                    console.log( 'An error happened' );
+                }
+            );
+            animate();
+        </script>
+	</body>
+</html>

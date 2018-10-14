@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<meta charset=utf-8>
+		<title>Jacques</title>
+		<style>
+			body { margin: 0; }
+			canvas { width: 100%; height: 100% }
+		</style>
+	</head>
+	<body>
+		<script src="js/three.js"></script>
+        <script src="js/OBJLoader.js"></script>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/2.0.2/TweenMax.min.js"></script>
+
+        <script id="vertexShader" type="x-shader/x-vertex">
+            precision mediump float;
+			precision mediump int;
+            
+            uniform mat4 modelViewMatrix;
+            uniform mat4 projectionMatrix;
+            uniform mat4 modelMatrix;
+
+            uniform vec3 cameraPos;
+            uniform vec3 lightPos;
+
+            attribute vec3 position;
+            attribute vec2 uv;
+
+            varying vec2 vUv;
+            varying vec4 vPosition;
+            varying vec3 toCameraVector;
+            varying vec3 fromLightVector;
+
+			void main()	{
+
+                vec4 worldPosition = modelMatrix * vec4(position.x, 0.0, position.y, 1.0);
+                toCameraVector = cameraPos - worldPosition.xyz;
+                fromLightVector = worldPosition.xyz - lightPos;
+                vUv = uv;
+
+                vec4 tmp_position = projectionMatrix * modelViewMatrix * vec4( position, 1.0 );    
+                vPosition = tmp_position;
+                gl_Position = tmp_position;
+			}
+		</script>
+
+		<script id="fragmentShader" type="x-shader/x-fragment">
+			precision mediump float;
+            precision mediump int;
+
+            uniform sampler2D dudvMap;
+            uniform sampler2D normalMap;
+            uniform float moveFactor;
+            
+            varying vec4 vPosition;
+            varying vec2 vUv;
+            varying vec3 toCameraVector;
+            varying vec3 fromLightVector;
+
+            uniform float shineDamper;
+            uniform float reflectivity;
+            uniform float flowInfluence;
+            uniform vec4 waterColor;
+            
+			void main()	{    
+                
+                vec2 distortedCoords = texture2D(dudvMap, vec2(vUv.x + moveFactor, vUv.y)).rg * flowInfluence;
+                distortedCoords = vUv + vec2(distortedCoords.x, distortedCoords.y + moveFactor);
+
+                vec4 normalMapColor = texture2D(normalMap, distortedCoords);
+                vec3 normal = vec3(normalMapColor.r * 2.0 - 1.0, normalMapColor.b * 2.0, normalMapColor.g * 2.0 - 1.0);
+                normal = normalize(normal);
+
+                vec3 viewVector = normalize(toCameraVector);
+                
+                vec3 reflectedLight = reflect(normalize(-fromLightVector), normal);
+                float specular = max(dot(reflectedLight, viewVector), 0.0);
+                specular = pow(specular, shineDamper);
+                vec3 specularHighlights = vec3(1.0, 1.0, 1.0) * specular * reflectivity;
+
+                gl_FragColor =  waterColor + vec4(specularHighlights, 0.0);
+			}
+		</script>
+		<script>
+            
+            function animate() {
+
+                if(plane !=null) {
+                    var moveFactor = plane.children[0].material.uniforms.moveFactor.value;
+                    moveFactor += waveSpeed * clock.getDelta(); 
+                    moveFactor %= 1;
+                    plane.children[0].material.uniforms.moveFactor.value = moveFactor;
+                    plane.children[0].material.needsUpdate = true;
+                }
+                requestAnimationFrame(animate);
+                renderer.render(scene, camera);
+            }
+
+            var waveSpeed = 0.03;
+            var waveStrength=0.04;
+            var shineDamper=20.0;
+            var reflectivity=0.5;
+            var flowInfluence=0.1;
+            var waterColor = new THREE.Vector4(0.0, 0.3, 0.6,1.0);
+                              
+            var clock = new THREE.Clock;
+            var light = new THREE.DirectionalLight();
+            var loader = new THREE.OBJLoader();
+            var elapsed = 0.0;
+            var isWaving = false;
+
+            var scene = new THREE.Scene();
+            scene.background = new THREE.Color(0xffffff);
+            var camera = new THREE.PerspectiveCamera(75, (window.innerWidth) / window.innerHeight, 0.1, 1000);
+            
+
+            var renderer = new THREE.WebGLRenderer();
+            renderer.setClearColor( 0xffffff, 0);
+            renderer.setSize( (window.innerWidth), window.innerHeight);
+            document.body.appendChild(renderer.domElement);
+
+            var plane;
+
+            scene.add(light);
+            camera.position.z = 2;
+            camera.position.y = -1;
+            camera.position.x = 0;
+            camera.lookAt(0, 0, 0);
+            var light = new THREE.AmbientLight( 0xffffff ); 
+            scene.add(light);
+
+            var dudv = new THREE.TextureLoader().load( "Textures/dudv.png", function(texture) {
+                texture.wrapS = texture.wrapT = THREE.RepeatWrapping;
+            });
+            var normalMap = new THREE.TextureLoader().load( "Textures/normal.png", function(texture) {
+                texture.wrapS = texture.wrapT = THREE.RepeatWrapping;
+            });
+
+
+            loader.load(
+                'Models/Plane/plane2.obj',
+                function ( object ) {
+                    plane = object;
+                    plane.traverse(function(child) {
+                        child.material = new THREE.RawShaderMaterial( {
+                            uniforms: {
+                                dudvMap: { type: "t", value: dudv},
+                                normalMap: { type: "t", value: normalMap},
+                                moveFactor: { value: 0.0 },
+                                shineDamper: {value: shineDamper},
+                                reflectivity: {value: reflectivity},
+                                flowInfluence: {value: flowInfluence},
+                                waterColor: {  type: "v4", value: waterColor},
+                                cameraPos: { type: "v3", value: camera.position},
+                                lightPos: { type: "v3", value: new THREE.Vector3( 0, 1, 2)}
+                            },
+                            vertexShader: document.getElementById( 'vertexShader' ).textContent,
+                            fragmentShader: document.getElementById( 'fragmentShader' ).textContent,
+                            side: THREE.DoubleSide,
+                            transparent: true
+                        });
+                    });
+                    plane.scale.x = 2;
+                    plane.scale.y = 3;
+                    scene.add(plane);
+                },
+                function ( xhr ) {
+                    console.log( ( xhr.loaded / xhr.total * 100 ) + '% loaded' );
+                },
+                function ( error ) {
+                    console.log( 'An error happened' );
+                }
+            );
+
+            function updateWavespeed(value) {
+                waveSpeed = value;
+            }
+
+            
+            function updateWavestrength(value) {
+                plane.children[0].material.uniforms.shineDamper.value = value;
+            }
+
+            
+            function updateReflectivity(value) {
+                plane.children[0].material.uniforms.reflectivity.value = value;
+            }
+
+            function updateFlowInfluence(value) {
+                plane.children[0].material.uniforms.flowInfluence.value = value;                
+            }
+
+            
+            function updateColor(value) {
+                var result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(value);
+                var red = parseInt(result[1], 16) / 255; var green = parseInt(result[2], 16) / 255; var blue = parseInt(result[3], 16) / 255;
+                var newColor = new THREE.Vector4(red, green, blue,1.0);
+                plane.children[0].material.uniforms.waterColor.value = newColor;                
+            }
+
+            animate();
+        </script>
+        <div class="inputs">
+            <label for="volume">Wave Speed</label>
+            <input type="range" id="start" name="volume"
+            min="0" max="0.1" step="0.01" oninput="updateWavespeed(this.value)" value="0.03"/>
+            
+            <label for="shine_damper">Shine Damper</label>
+            <input type="range" id="start" name="shine_damper"
+            min="0" max="100.0" step="2.0" oninput="updateWavestrength(this.value)" value="20.0"/>
+            
+            <label for="reflectivity">Reflectivity</label>
+            <input type="range" id="start" name="reflectivity"
+            min="0" max="2.0" step="0.1" oninput="updateReflectivity(this.value)" value="0.5"/>
+
+            
+            <label for="flow_influence">FlowMap influence</label>
+            <input type="range" id="start" name="flow_influence"
+            min="0" max="2.0" step="0.01" oninput="updateFlowInfluence(this.value)" value="0.5"/>
+
+            
+            <label for="color">Liquid Color</label>
+            <input type="color" name="favcolor" value="#4F9CE8" name="color"  oninput="updateColor(this.value)" >
+        </div>
+    </body>
+    <style>
+        .inputs {
+            position:absolute;
+            top:10px;
+        }
+    </style>
+</html>

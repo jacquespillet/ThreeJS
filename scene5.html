@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<meta charset=utf-8>
+		<title>Jacques</title>
+		<style>
+			body { margin: 0; }
+			canvas { width: 100%; height: 100% }
+		</style>
+    </head>
+	<body>
+		<script src="js/three.js"></script>
+        <script src="js/OBJLoader.js"></script>
+        <script src="js/RectAreaLightUniformsLib.js"></script>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/2.0.2/TweenMax.min.js"></script>
+        <script>
+                var MAX_PASTAS = 1000;
+
+                function animate() {
+                    for(var i=0; i<instancedPastas.length; i++) {
+                        instancedPastas[i].position.y -= 0.01;
+                        instancedPastas[i].rotation.x += instancedPastas[i].rotationAxis.x * 0.01;
+                        instancedPastas[i].rotation.y += instancedPastas[i].rotationAxis.y * 0.01;
+                        instancedPastas[i].rotation.z += instancedPastas[i].rotationAxis.z * 0.01;
+                        if(instancedPastas[i].position.y <= -20.0) {
+                            instancedPastas[i].position.y = 20.0;
+                        }
+                    }
+                    animateCamera();
+                    requestAnimationFrame(animate);
+                    renderer.render(scene, camera);
+                }
+
+                function animateCamera() {
+                    
+                }
+
+                var clock = new THREE.Clock;
+                var loader = new THREE.OBJLoader();
+
+                var scene = new THREE.Scene();
+                scene.background = new THREE.Color(0x000000);
+                var reflectionCubemap = new THREE.CubeTextureLoader()
+					.setPath( 'Textures/Cubemap/Day/' )   
+					.load( [ 'right.png', 'left.png', 'top.png', 'bottom.png', 'back.png', 'front.png' ] );
+
+                var camera = new THREE.PerspectiveCamera(75, (window.innerWidth) / window.innerHeight, 0.1, 1000);
+                
+
+                var renderer = new THREE.WebGLRenderer( { antialias: true});
+                renderer.setClearColor( 0xffffff, 0);
+                renderer.setSize( (window.innerWidth), window.innerHeight);
+                document.body.appendChild(renderer.domElement);
+
+                camera.position.z = 10;
+                camera.position.y = 0;
+                camera.position.x = 0;
+                camera.lookAt(0, 0, 0);
+
+                var light = new THREE.DirectionalLight();
+                var light = new THREE.AmbientLight( 0xffffff ); 
+                // scene.add(light);
+
+                var redLight = new THREE.PointLight( 0xff0000, 4, 20 );
+                redLight.decay = 2;
+                redLight.position.set( 5, 0, 0 );
+                scene.add( redLight );
+                
+                var blueLight = new THREE.PointLight( 0x0000ff, 10, 20 );
+                blueLight.decay = 2;
+                blueLight.position.set( -5, 0, 0 );
+                scene.add( blueLight );
+
+                
+                var mainLight = new THREE.PointLight( 0xffffff, 2, 10 );
+                mainLight.decay = 2;
+                mainLight.position = camera.position;
+                scene.add( mainLight );
+
+
+                var pastaModel;
+                var instancedPastas = [];
+
+                loader.load(
+                    'Models/Pasta/Pasta.obj',
+                    function ( object ) {
+                        object.traverse(function(child) {
+                            child.material = new THREE.MeshStandardMaterial({
+                                color: 0xF3C63A,
+                                roughness: 0.5,
+                                metalness: 0.4, 
+                                envMap: reflectionCubemap
+                            })
+                        });
+                        pastaModel = object;
+
+                        for(var i=0; i<MAX_PASTAS; i++) {
+                            var tmpPasta = object.clone();
+                            tmpPasta.position.x = Math.random() * 40.0 - 20.0;
+                            tmpPasta.position.y = Math.random() * 40.0 - 20.0;
+                            tmpPasta.position.z = Math.random() * 40.0 - 20.0;
+
+                            tmpPasta.rotation.x = Math.random() * Math.PI;
+                            tmpPasta.rotation.y = Math.random() * Math.PI;
+                            tmpPasta.rotation.z = Math.random() * Math.PI;
+                            tmpPasta.rotationAxis = new THREE.Vector3(Math.random() - 0.5, Math.random()- 0.5, Math.random()- 0.5);
+                            scene.add(tmpPasta);
+                            instancedPastas[i] = tmpPasta;
+                        }
+                    },
+                    function ( xhr ) {
+                        console.log( ( xhr.loaded / xhr.total * 100 ) + '% loaded' );
+                    },
+                    function ( error ) {
+                        console.log( 'An error happened' );
+                    }
+                );
+
+            document.onmousemove = handleMouseMove;
+            var mouseX, mouseY;
+            function handleMouseMove(event) {
+                mouseX = event.clientX / window.innerWidth - 0.5; mouseY = event.clientY / window.innerHeight - 0.5;
+            }
+            
+                
+
+                
+                animate();
+        </script>
+    </body>
+</html>
