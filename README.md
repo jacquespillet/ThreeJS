@@ -2,4 +2,4 @@
 
 You can use the [editor on GitHub](https://github.com/jacquespillet/ThreeJS/edit/master/README.md) to maintain and preview the content for 
 
-[ok](scene.html)
+[ok](scene2.html)
