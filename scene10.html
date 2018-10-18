@@ -11,40 +11,69 @@
 	<body>
 		<script src="js/three.js"></script>
         <script src="js/OBJLoader.js"></script>
+        <script src="js/Stats.js"></script>
         <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/2.0.2/TweenMax.min.js"></script>
+        
 		<script>
-            
+            var stats = new Stats();
+            // stats.showPanel( 0 );
+            // document.body.appendChild( stats.dom );
+
+            function clamp (number, min, max) {
+                return Math.min(Math.max(number, min), max);
+            };
             function animate() {
+                stats.begin();
+
+
+                ellapsedTime+= clock.getDelta();
+                
+                if(spinning != null && Math.exp(spinningRotation) >= 0.01 && isSpinning) {
+                    spinning.rotation.y += Math.exp(spinningRotation);
+                    spinning.rotation.y %= 2 * Math.PI
+                    spinningRotation -= 0.1;
+                    spinning.rotation.x = Math.cos((ellapsedTime * 3) % Math.PI *2) * clamp(Math.exp(spinningRotation), 0.0, 0.05);
+                } else {
+                    isSpinning = false;
+                }
+                stats.end();
                 requestAnimationFrame(animate);
                 renderer.render(scene, camera);
             }
             
 
             var loader = new THREE.OBJLoader();
- 
+            var clock = new THREE.Clock;
+            var ellapsedTime = 0;
 
             var scene = new THREE.Scene();
             var camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
-            camera.position.set(2, 5, 10);
+            camera.position.set(7, 4, 7);
             camera.lookAt(0, 0, 0);
 
 
             var renderer = new THREE.WebGLRenderer( { antialias: true});
             renderer.setSize( window.innerWidth, window.innerHeight);
+            renderer.shadowMap.enabled = true;
+            renderer.shadowMap.type = THREE.PCFSoftShadowMap;
             document.body.appendChild(renderer.domElement);
 
-
-            var geometry = new THREE.BoxGeometry(1, 1, 1);
-
-
-            var pointLight = new THREE.PointLight( 0xffffff, 1, 200 );
-            pointLight.decay = 1;
-            pointLight.position.set( 0, 20, 0 );
-            pointLight.castShadow = true;
-            scene.add( pointLight );
-
-            var light = new THREE.AmbientLight( 0x212121 );
+            var directionalLight = new THREE.DirectionalLight( 0xffffff, 1.5 );
+            directionalLight.position.set(1, 1, 1);
+            scene.add( directionalLight );
+            
+            //Create a PointLight and turn on shadows for the light
+            var light = new THREE.PointLight( 0xffffff, 0.5, 11 );
+            light.position.set( 0, 10, 0 );
+            light.castShadow = true;
+            
+            light.shadow.mapSize.width = 256;  
+            light.shadow.mapSize.height = 256; 
+            light.shadow.camera.near = 0.5; 
+            light.shadow.camera.far = 11;
+            
             scene.add( light );
+
 
             var geometry = new THREE.BoxGeometry( 40, 40, 40 );
             var material = new THREE.MeshStandardMaterial( { 
@@ -57,6 +86,20 @@
             cube.position.y = 20;
             scene.add( cube );
 
+            //Create a plane that receives shadows (but does not cast them)
+            var planeGeometry = new THREE.PlaneBufferGeometry( 20, 20, 32, 32 );
+            var planeMaterial = new THREE.MeshStandardMaterial( { 
+                side: THREE.DoubleSide,
+                color: 0xffffff,
+                roughness: 0.9,
+                metalness: 0.1, 
+             } )
+            var plane = new THREE.Mesh( planeGeometry, planeMaterial );
+            plane.rotation.x = -Math.PI /2;
+            plane.position.y = 0.1;
+            plane.receiveShadow = true;
+            scene.add( plane );
+
             var spinning;
             var texture = new THREE.TextureLoader().load( "Models/Toupie/texture.png" );
             loader.load(
@@ -65,11 +108,13 @@
                     object.traverse(function(child) {
                         child.material = new THREE.MeshStandardMaterial({
                             map: texture,
-                            roughness: 0.60,
-                            metalness: 0.1
+                            roughness: 0.3,
+                            metalness: 0.8
                         })
                     });
                     spinning = object;
+                    spinning.children[0].castShadow = true; 
+                    spinning.children[0].receiveShadow = false;
                     scene.add(spinning);
                 },
                 function ( xhr ) {
@@ -78,7 +123,39 @@
                 function ( error ) {
                     console.log( 'An error happened' );
                 }
-            );         
+            );        
+
+            document.onmousedown = handleClick;
+            var hasClicked = false;
+            function handleClick() {
+                hasClicked = true;
+            }
+
+            
+            document.onmouseup= handleMouseup;
+            function handleMouseup() {
+                hasClicked = false;
+            }
+
+            document.onmousemove = handleMouseMove;
+            var oldX=0; oldY=0;
+            var spinningRotation = 0;
+            var isSpinning = false;
+            function handleMouseMove(event) {
+                if(hasClicked) {
+                    if(event.screenX < oldX) {
+                        spinningRotation += 2
+                    }    
+                    if(event.screenX > oldX) {
+                        spinningRotation += 2
+                    }
+                    isSpinning = true;
+                    oldX = event.screenX;
+                    oldY = event.screenY;
+                    console.log(spinningRotation);
+                }
+            }
+             
             animate();
 		</script>
 	</body>

@@ -1,4 +1,3 @@
-* [Crane](scene.html)
 * [Images](scene2.html)
 * [Displacement (WIP)](scene3.html)
 * [Flow Map](scene4.html)
@@ -7,3 +6,7 @@
 * [Machinery](scene7.html)
 * [Torus](scene8.html)
 * [Sphere](scene9.html)
+* [Top](scene10.html)
+* [Sculpt](scene11.html)
+* [Tornado](scene12.html)
+* [Waving sphere (WIP)](scene13.html)
